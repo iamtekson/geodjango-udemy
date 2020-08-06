@@ -1,3 +1,5 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,6 +13,7 @@
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="{% static 'L.Geoserver.js' %}"></script>
     <title>GeoDjango app</title>
   </head>
 
@@ -19,10 +22,17 @@
       width: 100%;
       height: 95vh;
     }
+
+    #wmsImage {
+      border: 5px solid gray;
+    }
   </style>
   <body>
     <h2>GeoDjango app</h2>
+
     <div id="map"></div>
+
+    <img src="" id="wmsImage" />
 
     <script>
       var map = L.map("map").setView([38.861, 71.2761], 7);
@@ -90,16 +100,73 @@
         }
       }
 
-      $.getJSON("{% url 'jamoatdata' %}", function (data) {
-        console.log(data);
-        L.geoJSON(data, {
-          onEachFeature: function (feature, layer) {
-            layer.bindPopup(
-              `<h5>Jamoat Name: ${feature.properties.jamoat_eng}</h5><h5>Region name: ${feature.properties.name_rg}</h5>`
-            );
-          },
-          style: geojsonStyle,
-        }).addTo(map);
+      // $.getJSON("{% url 'jamoatdata' %}", function (data) {
+      //   console.log(data);
+      //   L.geoJSON(data, {
+      //     onEachFeature: function (feature, layer) {
+      //       layer.bindPopup(
+      //         `<h5>Jamoat Name: ${feature.properties.jamoat_eng}</h5><h5>Region name: ${feature.properties.name_rg}</h5>`
+      //       );
+      //     },
+      //     style: geojsonStyle,
+      //   }).addTo(map);
+      // });
+
+      //Geoserver request
+      function wmsLayer(layer) {
+        var wms = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
+          layers: layer,
+        });
+        wms.addTo(map);
+      }
+
+      // var wms2 = L.Geoserver.wms("http://localhost:8080/geoserver/wms", {
+      //   layers: "gic:jamoat",
+      //   CQL_FILTER: "region==2",
+      // });
+      // wms2.addTo(map);
+      wmsLayer("gic:agri");
+
+      var wfsLayer = L.Geoserver.wfs("http://localhost:8080/geoserver/wms", {
+        layers: "gic:jamoat",
+        style: {
+          color: "black",
+          fillOpacity: "0",
+          opacity: "0.5",
+        },
+        onEachFeature: function (feature, layer) {
+          layer.bindPopup(
+            "<pre>" +
+              JSON.stringify(feature.properties, null, " ").replace(
+                /[\{\}"]/g,
+                ""
+              ) +
+              "</pre>"
+          );
+        },
+        CQL_FILTER: "region==2",
+      });
+      wfsLayer.addTo(map);
+
+      var layerLegend = L.Geoserver.legend(
+        "http://localhost:8080/geoserver/wms",
+        {
+          layers: "gic:agri",
+        }
+      );
+
+      layerLegend.addTo(map);
+
+      //Geoserver WmsImage request
+
+      L.Geoserver.wmsImage("http://localhost:8080/geoserver/wms", {
+        wmsLayers: ["gic:jamoat", "gic:agri", "gic:jamoat"],
+        wmsCQL_FILTER: ["district==20", "INCLUDE", "district==20"],
+        wmsStyle: ["INCLUDE", "gic:agri", "jamoat"],
+        format: "image/png",
+        wmsId: "wmsImage",
+        width: 600,
+        height: 600,
       });
     </script>
   </body>
